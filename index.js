@@ -42,11 +42,12 @@ client.login(process.env.TOKEN);
 client.on("messageCreate", async message => {
     if (message.author.bot) return;
 
-    const argumento = message.content.slice(prefixo.simbolo.length).trim().split(/ +/);
-    const verificador = argumento.shift().toLocaleLowerCase();
+    const partesMensagem = message.content.slice(prefixo.simbolo.length).trim().split(/ +/);
+    const comando = partesMensagem.shift().toLowerCase();
+    const argumento = partesMensagem.join(' ');
 
-    if (comandos.has(verificador)) {
-        comandos.get(verificador)(message);
+    if (comandos.has(comando)) {
+        comandos.get(comando)(message, argumento);
     }
 });
 
@@ -112,7 +113,7 @@ evento("profile", async (message) => {
                 { name: 'Relic', value: `${perfilData.especial}`, inline: true },
             )
             .addFields(
-                { name: 'Historia ->', value: "Teste"},
+                { name: 'Historia ->', value: "Teste" },
             )
 
         await message.channel.send({ embeds: [embedPerfil] });
@@ -143,43 +144,5 @@ evento("habilidades", async (message) => {
             inventoryMessage += `${index + 1}. ${habilidade.nome} - ${habilidade.descricao}\n`;
         });
         message.reply(inventoryMessage);
-    }
-});
-
-// Comando >Corpo
-import { carregarHabilidadesCorpo } from './estrutura/carregarHabilidades.js';
-evento("corpo", async (message) => {
-    const habilidades = carregarHabilidadesCorpo();
-
-    if (habilidades.length === 0) {
-        message.reply('Não há habilidades disponíveis.');
-    } else {
-        habilidades.forEach((habilidade, index) => {
-            const embed = new EmbedBuilder()
-                .setColor("#075E74")
-                .setTitle(`${index + 1}. ${habilidade.nome}`)
-                .setDescription(habilidade.descricao)
-
-            message.channel.send({ embeds: [embed] });
-        });
-    }
-});
-
-// Comando >Reflexo
-import { carregarHabilidadesReflexo } from './estrutura/carregarHabilidades.js';
-evento("reflexo", async (message) => {
-    const habilidades = carregarHabilidadesReflexo();
-
-    if (habilidades.length === 0) {
-        message.reply('Não há habilidades disponíveis.');
-    } else {
-        habilidades.forEach((habilidade, index) => {
-            const embed = new EmbedBuilder()
-                .setColor("#075E74")
-                .setTitle(`${index + 1}. ${habilidade.nome}`)
-                .setDescription(habilidade.descricao)
-
-            message.channel.send({ embeds: [embed] });
-        });
     }
 });
