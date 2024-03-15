@@ -146,3 +146,18 @@ evento("habilidades", async (message) => {
         message.reply(inventoryMessage);
     }
 });
+
+import { carregarHabilidadesCorpo } from "./estrutura/carregarHabilidades.js";
+evento("corpo", async (message) => {
+    const habilidades = carregarHabilidadesCorpo();
+
+        habilidades.forEach((habilidade, index) => {
+            const embed = new EmbedBuilder()
+                .setColor('#0099ff')
+                .setTitle(`${index + 1}. ${habilidade.nome}`)
+                .setDescription(habilidade.descricao);
+
+            message.channel.send({ embeds: [embed] });
+        });
+    }
+);
