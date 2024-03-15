@@ -1,0 +1,6 @@
+.vscode
+/estrutura
+/habilidades
+/node_modules
+.env
+firebase.json
