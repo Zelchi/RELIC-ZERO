@@ -139,25 +139,119 @@ evento("habilidades", async (message) => {
     if (habilidades.length === 0) {
         message.reply('Você não tem habilidades.');
     } else {
-        let inventoryMessage = 'Inventário de Habilidades:\n';
+        let inventoryMessage = `Habilidades de ${perfilData.nome}:\n`;
         habilidades.forEach((habilidade, index) => {
             inventoryMessage += `${index + 1}. ${habilidade.nome} - ${habilidade.descricao}\n`;
         });
-        message.reply(inventoryMessage);
+
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Lista de Habilidades')
+            .setDescription(inventoryMessage);
+
+        message.channel.send({ embeds: [embed] });
     }
 });
 
 import { carregarHabilidadesCorpo } from "./estrutura/carregarHabilidades.js";
-evento("corpo", async (message) => {
+import { converterParaRomano } from "./estrutura/converterParaRomano.js";
+evento("corpo", async (message, argumento) => {
     const habilidades = carregarHabilidadesCorpo();
 
-        habilidades.forEach((habilidade, index) => {
+    if (argumento) {
+        const habilidadeEncontrada = habilidades.find(habilidade => habilidade.nome.toLowerCase() === argumento.toLowerCase());
+
+        if (habilidadeEncontrada) {
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
-                .setTitle(`${index + 1}. ${habilidade.nome}`)
-                .setDescription(habilidade.descricao);
+                .setTitle(`${habilidadeEncontrada.nome}`)
+                .setDescription(`${habilidadeEncontrada.descricao}`)
+                .setThumbnail(habilidadeEncontrada.foto)
+                .addFields(
+                    { name: 'Efeito', value: `${habilidadeEncontrada.efeito}`, inline: true },
+                    { name: 'Custo', value: `${habilidadeEncontrada.custo.tipo}: ${habilidadeEncontrada.custo.atributoRequerido}`, inline: true },
+                    { name: 'Corpo', value: `Nível: ${converterParaRomano(habilidadeEncontrada.custo.nivelCorpo)}`, inline: true }
+                );
+
+            // Verifica se há necessidades para essa habilidade
+            if (habilidadeEncontrada.necessidade && habilidadeEncontrada.necessidade.length > 0) {
+                const necessidadesString = habilidadeEncontrada.necessidade.join(', ');
+                embed.addFields({ name: 'Requisitos', value: `${necessidadesString}`, inline: true });
+            }
+
+            // Verifica se há informações de upgrade
+            if (habilidadeEncontrada.upgrade && habilidadeEncontrada.upgrade.tipo) {
+                embed.addFields({ name: 'Upgrade', value: `${habilidadeEncontrada.upgrade.tipo}: ${habilidadeEncontrada.upgrade.custo}`, inline: true });
+            }
 
             message.channel.send({ embeds: [embed] });
-        });
+        } else {
+            message.channel.send("Habilidade não encontrada.");
+        }
+    } else {
+        const habilidadesLista = habilidades.map(habilidade => `${converterParaRomano(habilidade.custo.nivelCorpo)} - ${habilidade.nome}`).join('\n');
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Lista de Habilidades')
+            .setDescription(habilidadesLista);
+
+        message.channel.send({ embeds: [embed] });
     }
-);
+});
+
+// Comando !dar
+evento("adquirir", async (message, argumento) => {
+    // Carrega as habilidades disponíveis para dar
+    const habilidades = carregarHabilidadesCorpo();
+    // Verifica se a habilidade solicitada existe
+    const habilidadeEncontrada = habilidades.find(habilidade => habilidade.nome.toLowerCase() === argumento.toLowerCase());
+    if (!habilidadeEncontrada) {
+        message.reply('A habilidade especificada não foi encontrada.');
+        return;
+    }
+    // Obtém o documento de perfil do autor da mensagem
+    const perfilDoc = await db.collection('perfis').doc(message.author.id).get();
+    // Verifica se o perfil do autor da mensagem existe
+    if (!perfilDoc.exists) {
+        message.reply('Seu perfil ainda não foi criado. Use `>create` para criar um.');
+        return;
+    }
+    // Adiciona a habilidade ao array de habilidades do autor da mensagem no Firebase
+    await db.collection('perfis').doc(message.author.id).update({
+        habilidades: admin.firestore.FieldValue.arrayUnion({
+            nome: habilidadeEncontrada.nome,
+            descricao: habilidadeEncontrada.descricao
+        })
+    });
+    message.reply(`A habilidade "${habilidadeEncontrada.nome}" foi dada para você.`);
+});
+
+// Comando !esquecer
+evento("esquecer", async (message, argumento) => {
+    // Verifica se uma habilidade foi especificada
+    if (!argumento) {
+        message.reply('Por favor, especifique o nome da habilidade que deseja esquecer.');
+        return;
+    }
+    // Obtém o documento de perfil do autor da mensagem
+    const perfilDoc = await db.collection('perfis').doc(message.author.id).get();
+    // Verifica se o perfil do autor da mensagem existe
+    if (!perfilDoc.exists) {
+        message.reply('Seu perfil ainda não foi criado. Use `>create` para criar um.');
+        return;
+    }
+    // Obtém os dados do perfil do autor da mensagem
+    const perfilData = perfilDoc.data();
+    // Verifica se o autor da mensagem possui a habilidade especificada
+    const habilidadeIndex = perfilData.habilidades.findIndex(habilidade => habilidade.nome.toLowerCase() === argumento.toLowerCase());
+    if (habilidadeIndex === -1) {
+        message.reply(`Você não possui a habilidade "${argumento}".`);
+        return;
+    }
+    // Remove a habilidade do array de habilidades do autor da mensagem no Firebase
+    const novasHabilidades = perfilData.habilidades.filter((_, index) => index !== habilidadeIndex);
+    await db.collection('perfis').doc(message.author.id).update({
+        habilidades: novasHabilidades
+    });
+    message.reply(`A habilidade "${argumento}" foi removida do seu perfil.`);
+});
